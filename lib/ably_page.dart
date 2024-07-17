@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:ably_flutter/ably_flutter.dart' as ably;
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/status.dart' as status;
+import 'dart:convert';
 
 const apiKey = 'DrxRqA.f6AqdA:J6_FmVgT03gro-I-s5W5_n71XVK7fi7bPW3vSChIijo';
 const clientId = 'DIpz4d94Ww';
+
+final webSocketUrl = Uri.parse('wss://realtime.ably.io:443/?key=$apiKey&clientId=$clientId');
 
 class AblyPage extends StatefulWidget {
   const AblyPage({super.key});
@@ -13,88 +17,84 @@ class AblyPage extends StatefulWidget {
 
 class _AblyPageState extends State<AblyPage> {
   List<String> displayedMessages = [];
-  ably.Realtime? realtimeInstance;
-  ably.RealtimeChannel? channel;
+  WebSocketChannel? channel;
 
   @override
   void initState() {
     super.initState();
-    _initAbly();
+    _initWebSocket();
   }
 
   @override
   void dispose() {
-    _disposeAbly();
+    _disposeWebSocket();
     super.dispose();
   }
 
-  Future<void> _initAbly() async {
+  void _initWebSocket() {
     try {
-      print('Initialisation de Ably...');
-      realtimeInstance = await _createAblyRealtimeInstance(apiKey: apiKey, clientId: clientId);
-      print('Instance Ably créée.');
-      channel = await _createAblyChannelInstance(realtimeInstance: realtimeInstance!, channelName: 'id-du-channel');
-      print('Canal Ably créé.');
+      print('Initialisation de WebSocket...');
+      channel = WebSocketChannel.connect(webSocketUrl);
+      print('WebSocket connecté !');
       _subscribeToEvent(channel: channel!);
-      print('Abonnement aux événements du canal.');
-    } catch (e) {
-      print('Erreur lors de l\'initialisation de Ably: $e');
-      _showErrorSnackBar('Erreur de connexion à Ably');
+      _subscribeToChannel('id-du-channel');
+      print('Abonnement aux événements du canal');
+    } catch (error) {
+      print('Erreur lors de l\'initialisation de WebSocket: $error');
+      _showErrorSnackBar('Erreur de connexion à WebSocket');
     }
   }
 
-  Future<ably.Realtime> _createAblyRealtimeInstance({
-    required String apiKey,
-    String? clientId,
-  }) async {
-    final clientOptions = ably.ClientOptions(key: apiKey, clientId: clientId);
-    final realtime = ably.Realtime(options: clientOptions);
-
-    realtime.connection.on(ably.ConnectionEvent.connected).listen((ably.ConnectionStateChange stateChange) {
-      print('État de la connexion en temps réel changé: ${stateChange.event}');
-    });
-
-    realtime.connection.on(ably.ConnectionEvent.failed).listen((ably.ConnectionStateChange stateChange) {
-      print('Échec de la connexion: ${stateChange.reason}');
-    });
-
-    return realtime;
+  void _subscribeToChannel(String channelName) {
+    if (channel != null) {
+      var subscribeMessage = json.encode({
+        "action": "subscribe",
+        "channel": channelName
+      });
+      channel!.sink.add(subscribeMessage);
+      print('Abonné au canal: $channelName');
+    }
   }
 
-  Future<ably.RealtimeChannel> _createAblyChannelInstance({
-    required ably.Realtime realtimeInstance,
-    required String channelName,
-  }) async {
-    final channel = realtimeInstance.channels.get(channelName);
-    await channel.attach();
-
-    channel.on(ably.ChannelEvent.failed).listen((ably.ChannelStateChange stateChange) {
-      print('Échec de l\'attachement du canal: ${stateChange.reason}');
-    });
-
-    return channel;
+  void _subscribeToEvent({required WebSocketChannel channel}) {
+    channel.stream.listen(
+      (message) {
+        print('Message brut reçu: $message');
+        if (mounted) {
+          setState(() {
+            try {
+              var decodedMessage = json.decode(message);
+              print('Message décodé: $decodedMessage');
+              if (decodedMessage['action'] == 'message' && decodedMessage['channel'] == 'id-du-channel') {
+                var formattedMessage = const JsonEncoder.withIndent('  ').convert(decodedMessage['data']);
+                displayedMessages.add(formattedMessage);
+              }
+            } catch (e) {
+              print('Erreur de décodage du message: $e');
+              displayedMessages.add(message.toString());
+            }
+          });
+        }
+      },
+      onError: (error) {
+        print('Erreur de WebSocket: $error');
+        _showErrorSnackBar('Erreur de WebSocket');
+      },
+      onDone: () {
+        print('WebSocket fermé.');
+        if (channel.closeCode != null) {
+          print('Code de fermeture: ${channel.closeCode}');
+        }
+      },
+    );
   }
 
-  void _subscribeToEvent({
-    required ably.RealtimeChannel channel,
-    String? eventName,
-  }) {
-    channel.subscribe(name: eventName).listen((ably.Message message) {
-      if (mounted) {
-        setState(() => displayedMessages.add(message.data.toString()));
-      }
-      print('Reçu: ${message.data}');
-    });
-  }
-
-  void _disposeAbly() {
-    channel?.detach().catchError((e) {
-      print('Erreur lors du détachement du canal: $e');
-    });
-
-    realtimeInstance?.close().catchError((e) {
-      print('Erreur lors de la fermeture de l\'instance Ably: $e');
-    });
+  void _disposeWebSocket() {
+    try {
+      channel?.sink.close(status.goingAway);
+    } catch (error) {
+      print('Erreur lors de la fermeture du WebSocket: $error');
+    }
   }
 
   void _showErrorSnackBar(String message) {
@@ -107,7 +107,7 @@ class _AblyPageState extends State<AblyPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Test avec Ably'),
+        title: const Text('Test avec WebSocket'),
       ),
       body: Center(
         child: Column(
