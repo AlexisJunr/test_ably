@@ -39,8 +39,12 @@ class _MainAppState extends State<MainApp> {
               clientId: 'user-id',
               channelName: '1',
             ),
-            Expanded(
-              child: MessagePage(messages: messages),
+            Column( // Ajout d'un widget Column pour contenir Expanded
+              children: [
+                Expanded(
+                  child: MessagePage(messages: messages),
+                ),
+              ],
             ),
           ],
         ),
