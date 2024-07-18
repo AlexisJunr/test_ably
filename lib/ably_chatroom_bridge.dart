@@ -3,29 +3,39 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
 import 'dart:convert';
 
-const apiKey = 'DrxRqA.f6AqdA:J6_FmVgT03gro-I-s5W5_n71XVK7fi7bPW3vSChIijo';
-const clientId = 'DIpz4d94Ww';
-const channelName = 'id-du-channel';
+class AblyChatroomBridge extends StatefulWidget {
+  final double width;
+  final double height;
 
-final webSocketUrl = Uri.parse('wss://realtime.ably.io:443/?key=$apiKey&clientId=$clientId');
+  final String apiKey;
+  final String clientId;
+  final String channelName;
 
-class AblyPage extends StatefulWidget {
   final Function(String) onMessageReceived;
-  final Widget messagePage;
 
-  const AblyPage({super.key, required this.onMessageReceived, required this.messagePage});
+  const AblyChatroomBridge({
+    super.key,
+    required this.width,
+    required this.height,
+    required this.apiKey,
+    required this.clientId,
+    required this.channelName,
+    required this.onMessageReceived,
+  });
 
   @override
-  State<AblyPage> createState() => _AblyPageState();
+  State<AblyChatroomBridge> createState() => _AblyChatroomBridgeState();
 }
 
-class _AblyPageState extends State<AblyPage> {
+class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
   WebSocketChannel? channel;
+  Uri? webSocketUrl;
 
   @override
   void initState() {
     super.initState();
     _initWebSocket();
+    _subscribeToChannel(widget.channelName);
   }
 
   @override
@@ -35,13 +45,13 @@ class _AblyPageState extends State<AblyPage> {
   }
 
   void _initWebSocket() async {
+    webSocketUrl = Uri.parse('wss://realtime.ably.io:443/?key=${widget.apiKey}&clientId=${widget.clientId}');
     try {
       print('Initialisation de WebSocket...');
-      channel = WebSocketChannel.connect(webSocketUrl);
+      channel = WebSocketChannel.connect(webSocketUrl!);
       print('WebSocket connecté !');
       await channel?.ready;
       _subscribeToEvent(channel: channel!);
-      _subscribeToChannel(channelName);
       print('Abonnement aux événements du canal');
     } catch (error) {
       print('Erreur lors de l\'initialisation de WebSocket: $error');
@@ -68,9 +78,19 @@ class _AblyPageState extends State<AblyPage> {
           try {
             var decodedMessage = json.decode(message);
             print('Message décodé: $decodedMessage');
-            if (decodedMessage['action'] == 15 && decodedMessage['channel'] == channelName) {
-              var formattedMessage = const JsonEncoder.withIndent('  ').convert(decodedMessage['messages'][0]);
-              widget.onMessageReceived(formattedMessage);
+
+            switch (decodedMessage['action']) {
+              case 0:
+                print('Heartbeat !');
+                break;
+              case 15:
+                if (decodedMessage['channel'] == widget.channelName) {
+                  var formattedMessage = const JsonEncoder.withIndent('  ').convert(decodedMessage['messages'][0]);
+                  widget.onMessageReceived(formattedMessage);
+                }
+                break;
+              default:
+                print('Action non reconnue: ${decodedMessage['action']}');
             }
           } catch (e) {
             print('Erreur de décodage du message: $e');
@@ -106,21 +126,9 @@ class _AblyPageState extends State<AblyPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Test avec WebSocket'),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Écoute des messages...'),
-            Expanded(
-              child: widget.messagePage,
-            ),
-          ],
-        ),
-      ),
+    return SizedBox(
+      width: widget.width,
+      height: widget.height,
     );
   }
 }
