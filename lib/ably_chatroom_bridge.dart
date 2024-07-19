@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:test_ably/message_model.dart';
+
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/status.dart' as status;
 import 'dart:convert';
@@ -11,7 +13,7 @@ class AblyChatroomBridge extends StatefulWidget {
   final String clientId;
   final String channelName;
 
-  final Function(String) onMessageReceived;
+  final Function(ChatroomMessageStruct) onMessageReceived;
 
   const AblyChatroomBridge({
     super.key,
@@ -30,12 +32,22 @@ class AblyChatroomBridge extends StatefulWidget {
 class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
   WebSocketChannel? channel;
   Uri? webSocketUrl;
+  bool isWebSocketReady = false;
+
+  List<String> messages = [];
 
   @override
   void initState() {
     super.initState();
     _initWebSocket();
-    _subscribeToChannel(widget.channelName);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (isWebSocketReady) {
+      _subscribeToChannel(widget.channelName);
+    }
   }
 
   @override
@@ -51,8 +63,11 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
       channel = WebSocketChannel.connect(webSocketUrl!);
       print('WebSocket connecté !');
       await channel?.ready;
+      isWebSocketReady = true;
+      _subscribeToChannel(widget.channelName);
       _subscribeToEvent(channel: channel!);
       print('Abonnement aux événements du canal');
+      _showSuccessSnackBar('Connecté au canal: ${widget.channelName}');
     } catch (error) {
       print('Erreur lors de l\'initialisation de WebSocket: $error');
       _showErrorSnackBar('Erreur de connexion à WebSocket');
@@ -60,7 +75,7 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
   }
 
   void _subscribeToChannel(String channelName) {
-    if (channel != null) {
+    if (channel != null && isWebSocketReady) {
       var subscribeMessage = json.encode({
         "action": 10,
         "channel": channelName
@@ -85,15 +100,22 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
                 break;
               case 15:
                 if (decodedMessage['channel'] == widget.channelName) {
-                  var formattedMessage = const JsonEncoder.withIndent('  ').convert(decodedMessage['messages'][0]);
-                  widget.onMessageReceived(formattedMessage);
+                  try {
+                    var formattedMessage = json.decode(decodedMessage['messages'][0]['data']);
+                    widget.onMessageReceived(ChatroomMessageStruct.fromMap(formattedMessage));
+                    setState(() {
+                      messages.add(formattedMessage.toString());
+                    });
+                  } catch (error) {
+                    print('Erreur de décodage du message: $error');
+                  }
                 }
                 break;
               default:
                 print('Action non reconnue: ${decodedMessage['action']}');
             }
-          } catch (e) {
-            print('Erreur de décodage du message: $e');
+          } catch (error) {
+            print('Erreur de décodage du message: $error');
           }
         }
       },
@@ -124,11 +146,28 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
     );
   }
 
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: widget.width,
       height: widget.height,
+      child: ListView.builder(
+        itemCount: messages.length,
+        itemBuilder: (context, index) {
+          return ListTile(
+            title: Text(
+              messages[index],
+              style: const TextStyle(fontSize: 10),
+            ),
+          );
+        },
+      ),
     );
   }
 }

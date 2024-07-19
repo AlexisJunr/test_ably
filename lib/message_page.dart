@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:test_ably/message_model.dart';
 
 class MessagePage extends StatefulWidget {
-  final List<String> messages;
+  final List<ChatroomMessageStruct> messages;
 
   const MessagePage({super.key, required this.messages});
 
@@ -18,7 +19,7 @@ class _MessagePageState extends State<MessagePage> {
             itemCount: widget.messages.length,
             itemBuilder: (context, index) {
               return ListTile(
-                title: Text(widget.messages[index]),
+                title: Text(widget.messages[index].message),
               );
             },
           );

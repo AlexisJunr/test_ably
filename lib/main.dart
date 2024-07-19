@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:test_ably/ably_chatroom_bridge.dart';
 import 'package:test_ably/message_page.dart';
+import 'package:test_ably/message_model.dart';
 
 void main() {
   runApp(const MainApp());
@@ -14,12 +15,10 @@ class MainApp extends StatefulWidget {
 }
 
 class _MainAppState extends State<MainApp> {
-  final List<String> messages = [];
+  final List<ChatroomMessageStruct> messages = [];
 
-  void _addMessage(String message) {
-    setState(() {
-      messages.add(message);
-    });
+  void _addMessage(ChatroomMessageStruct message) {
+    setState(() => messages.add(message));
   }
 
   @override
@@ -29,22 +28,18 @@ class _MainAppState extends State<MainApp> {
         appBar: AppBar(
           title: const Text('Test avec WebSocket'),
         ),
-        body: Stack(
+        body: Column(
           children: [
             AblyChatroomBridge(
               onMessageReceived: _addMessage,
-              width: 0,
-              height: 0,
+              width: 200,
+              height: 100,
               apiKey: 'DrxRqA.f6AqdA:J6_FmVgT03gro-I-s5W5_n71XVK7fi7bPW3vSChIijo',
               clientId: 'user-id',
-              channelName: '1',
+              channelName: '103',
             ),
-            Column( // Ajout d'un widget Column pour contenir Expanded
-              children: [
-                Expanded(
-                  child: MessagePage(messages: messages),
-                ),
-              ],
+            Expanded(
+              child: MessagePage(messages: messages),
             ),
           ],
         ),
