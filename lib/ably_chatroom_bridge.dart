@@ -14,6 +14,7 @@ class AblyChatroomBridge extends StatefulWidget {
   final String channelName;
 
   final Function(ChatroomMessageStruct) onMessageReceived;
+  final Function()? onReady;
 
   const AblyChatroomBridge({
     super.key,
@@ -23,6 +24,7 @@ class AblyChatroomBridge extends StatefulWidget {
     required this.clientId,
     required this.channelName,
     required this.onMessageReceived,
+    this.onReady,
   });
 
   @override
@@ -68,6 +70,9 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
       _subscribeToEvent(channel: channel!);
       print('Abonnement aux événements du canal');
       _showSuccessSnackBar('Connecté au canal: ${widget.channelName}');
+      if (widget.onReady != null) {
+        widget.onReady!();
+      }
     } catch (error) {
       print('Erreur lors de l\'initialisation de WebSocket: $error');
       _showErrorSnackBar('Erreur de connexion à WebSocket');
@@ -110,6 +115,7 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
                     print('Erreur de décodage du message: $error');
                   }
                 }
+
                 break;
               default:
                 print('Action non reconnue: ${decodedMessage['action']}');
