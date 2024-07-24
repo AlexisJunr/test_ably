@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:test_ably/message_model.dart';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
-import 'package:web_socket_channel/status.dart' as status;
 import 'dart:convert';
 
 class AblyChatroomBridge extends StatefulWidget {
@@ -107,7 +106,20 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
                 if (decodedMessage['channel'] == widget.channelName) {
                   try {
                     var formattedMessage = json.decode(decodedMessage['messages'][0]['data']);
-                    widget.onMessageReceived(ChatroomMessageStruct.fromMap(formattedMessage));
+                    final int userId = formattedMessage['user_id'];
+                    final String message = formattedMessage['message'];
+                    final int createdAt = formattedMessage['created_at'];
+                    final int id = formattedMessage['id'];
+                    final int chatroomId = formattedMessage['chatroom_id'];
+                    final chatroomMessage = ChatroomMessageStruct(
+                      id: id,
+                      userId: userId,
+                      message: message,
+                      createdAt: createdAt,
+                      chatroomId: chatroomId,
+                    );
+                    widget.onMessageReceived(chatroomMessage);
+                    print('Format ok');
                     setState(() {
                       messages.add(formattedMessage.toString());
                     });
@@ -140,9 +152,15 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
 
   void _disposeWebSocket() {
     try {
-      channel?.sink.close(status.goingAway);
+      if (channel != null) {
+        channel!.sink.close(1000);
+        print('WebSocket fermé proprement.');
+      }
     } catch (error) {
       print('Erreur lors de la fermeture du WebSocket: $error');
+    } finally {
+      channel = null;
+      isWebSocketReady = false;
     }
   }
 
@@ -160,20 +178,28 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: widget.width,
-      height: widget.height,
-      child: ListView.builder(
-        itemCount: messages.length,
-        itemBuilder: (context, index) {
-          return ListTile(
-            title: Text(
-              messages[index],
-              style: const TextStyle(fontSize: 10),
-            ),
-          );
-        },
-      ),
+    return Column(
+      children: [
+        SizedBox(
+          width: widget.width,
+          height: widget.height,
+          child: ListView.builder(
+            itemCount: messages.length,
+            itemBuilder: (context, index) {
+              return ListTile(
+                title: Text(
+                  messages[index],
+                  style: const TextStyle(fontSize: 10),
+                ),
+              );
+            },
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _disposeWebSocket,
+          child: const Text('Fermer WebSocket'),
+        ),
+      ],
     );
   }
 }

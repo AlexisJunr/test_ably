@@ -36,7 +36,7 @@ class _MainAppState extends State<MainApp> {
               height: 100,
               apiKey: 'DrxRqA.f6AqdA:J6_FmVgT03gro-I-s5W5_n71XVK7fi7bPW3vSChIijo',
               clientId: 'user-id',
-              channelName: '103',
+              channelName: '129',
             ),
             Expanded(
               child: MessagePage(messages: messages),
