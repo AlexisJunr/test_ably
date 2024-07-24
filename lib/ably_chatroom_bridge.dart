@@ -52,6 +52,17 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
   }
 
   @override
+  void didUpdateWidget(AblyChatroomBridge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.channelName != widget.channelName) {
+      if (channel != null) {
+        _disposeWebSocket();
+      }
+      _initWebSocket();
+    }
+  }
+
+  @override
   void dispose() {
     _disposeWebSocket();
     super.dispose();
@@ -65,27 +76,27 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
       print('WebSocket connecté !');
       await channel?.ready;
       isWebSocketReady = true;
-      _subscribeToChannel(widget.channelName);
       _subscribeToEvent(channel: channel!);
-      print('Abonnement aux événements du canal');
-      _showSuccessSnackBar('Connecté au canal: ${widget.channelName}');
       if (widget.onReady != null) {
         widget.onReady!();
       }
+      _subscribeToChannel(widget.channelName);
     } catch (error) {
       print('Erreur lors de l\'initialisation de WebSocket: $error');
       _showErrorSnackBar('Erreur de connexion à WebSocket');
     }
   }
 
-  void _subscribeToChannel(String channelName) {
+  void _subscribeToChannel(String channelName) async {
     if (channel != null && isWebSocketReady) {
+      await Future.delayed(const Duration(milliseconds: 500));
       var subscribeMessage = json.encode({
         "action": 10,
         "channel": channelName
       });
       channel!.sink.add(subscribeMessage);
-      print('Abonné au canal: $channelName');
+      print('Connecté au canal: $channelName');
+      _showSuccessSnackBar('Connecté au canal: $channelName');
     }
   }
 
@@ -106,18 +117,7 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
                 if (decodedMessage['channel'] == widget.channelName) {
                   try {
                     var formattedMessage = json.decode(decodedMessage['messages'][0]['data']);
-                    final int userId = formattedMessage['user_id'];
-                    final String message = formattedMessage['message'];
-                    final int createdAt = formattedMessage['created_at'];
-                    final int id = formattedMessage['id'];
-                    final int chatroomId = formattedMessage['chatroom_id'];
-                    final chatroomMessage = ChatroomMessageStruct(
-                      id: id,
-                      userId: userId,
-                      message: message,
-                      createdAt: createdAt,
-                      chatroomId: chatroomId,
-                    );
+                    final chatroomMessage = _convertToChatroomMessage(formattedMessage);
                     widget.onMessageReceived(chatroomMessage);
                     print('Format ok');
                     setState(() {
@@ -147,6 +147,21 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
           print('Code de fermeture: ${channel.closeCode}');
         }
       },
+    );
+  }
+
+  ChatroomMessageStruct _convertToChatroomMessage(Map<String, dynamic> formattedMessage) {
+    final int userId = formattedMessage['user_id'];
+    final String message = formattedMessage['message'];
+    final int createdAt = formattedMessage['created_at'];
+    final int id = formattedMessage['id'];
+    final int chatroomId = formattedMessage['chatroom_id'];
+    return ChatroomMessageStruct(
+      id: id,
+      userId: userId,
+      message: message,
+      createdAt: createdAt,
+      chatroomId: chatroomId,
     );
   }
 
