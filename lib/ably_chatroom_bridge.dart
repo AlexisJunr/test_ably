@@ -178,28 +178,20 @@ class _AblyChatroomBridgeState extends State<AblyChatroomBridge> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          width: widget.width,
-          height: widget.height,
-          child: ListView.builder(
-            itemCount: messages.length,
-            itemBuilder: (context, index) {
-              return ListTile(
-                title: Text(
-                  messages[index],
-                  style: const TextStyle(fontSize: 10),
-                ),
-              );
-            },
-          ),
-        ),
-        ElevatedButton(
-          onPressed: _disposeWebSocket,
-          child: const Text('Fermer WebSocket'),
-        ),
-      ],
+    return SizedBox(
+      width: widget.width,
+      height: widget.height,
+      child: ListView.builder(
+        itemCount: messages.length,
+        itemBuilder: (context, index) {
+          return ListTile(
+            title: Text(
+              messages[index],
+              style: const TextStyle(fontSize: 10),
+            ),
+          );
+        },
+      ),
     );
   }
 }
